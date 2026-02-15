@@ -2,54 +2,88 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phone Sender 1080p</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phone Sender Pro</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #121212; color: white; margin: 0; padding: 20px; }
-        #preview { width: 100%; max-width: 360px; border-radius: 10px; border: 2px solid #2563eb; margin-top: 10px; }
-        .status { padding: 15px; margin: 10px; border-radius: 5px; background: #1e293b; color: #60a5fa; }
-        .btn-retry { padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 5px; margin-top: 20px; }
+        body { font-family: sans-serif; text-align: center; background: #000; color: white; margin: 0; overflow: hidden; }
+        #preview { width: 100%; height: 60vh; object-fit: cover; background: #111; }
+        .indicator-container { padding: 20px; }
+        #status-btn { 
+            width: 80px; height: 80px; border-radius: 50%; border: none;
+            background: #ff4444; /* Mặc định Đỏ */
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+            transition: 0.3s; margin: 10px auto;
+        }
+        .status-active { 
+            background: #00ff44 !important; /* Xanh khi có kết nối */
+            box-shadow: 0 0 25px rgba(0, 255, 68, 0.8) !important;
+        }
+        .info { font-size: 14px; color: #aaa; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h3>PHÁT TÍN HIỆU 1080P</h3>
-    <div id="status" class="status">Đang khởi tạo Peer...</div>
     <video id="preview" autoplay playsinline muted></video>
-    <br>
-    <button class="btn-retry" onclick="location.reload()">KẾT NỐI LẠI</button>
+    
+    <div class="indicator-container">
+        <button id="status-btn"></button>
+        <div id="msg">ĐANG CHỜ KẾT NỐI...</div>
+        <p class="info">Tự động xoay theo điện thoại (16:9)</p>
+        <button onclick="location.reload()" style="margin-top:20px; padding: 10px; background: #333; color: white; border: none; border-radius: 5px;">KẾT NỐI LẠI</button>
+    </div>
 
     <script>
         const peer = new Peer();
+        const statusBtn = document.getElementById('status-btn');
+        const msg = document.getElementById('msg');
         const urlParams = new URLSearchParams(window.location.search);
         const targetId = urlParams.get('join');
 
         peer.on('open', async (id) => {
             if (!targetId) {
-                document.getElementById('status').innerText = "Lỗi: Thiếu ID máy nhận!";
+                msg.innerText = "LỖI: THIẾU ID NHẬN";
                 return;
             }
-            
-            document.getElementById('status').innerText = "Đang mở Camera 1080p...";
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
-                        facingMode: "environment",
-                        width: { min: 1280, ideal: 1920 }, // Ép độ phân giải cao
-                        height: { min: 720, ideal: 1080 },
-                        aspectRatio: 1.777777778 // Chuẩn 16:9
+                        facingMode: { exact: "environment" }, // BẮT BUỘC CAMERA SAU
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
                     },
                     audio: true
                 });
 
                 document.getElementById('preview').srcObject = stream;
-                peer.call(targetId, stream);
-                document.getElementById('status').innerText = "ĐANG TRUYỀN: 1920x1080";
-                document.getElementById('status').style.color = "#10b981";
+                const call = peer.call(targetId, stream);
+
+                // Khi bắt đầu gọi thành công
+                call.on('stream', () => {
+                    statusBtn.classList.add('status-active');
+                    msg.innerText = "ĐANG TRUYỀN (LIVE)";
+                });
+
+                // Xử lý khi kết nối bị đóng
+                call.on('close', () => {
+                    statusBtn.classList.remove('status-active');
+                    msg.innerText = "ĐÃ NGẮT KẾT NỐI";
+                });
+
+                // Dự phòng cho PeerJS: nếu call được tạo, tạm thời hiện xanh
+                if(call) {
+                    statusBtn.classList.add('status-active');
+                    msg.innerText = "ĐANG TRUYỀN (LIVE)";
+                }
 
             } catch (err) {
-                document.getElementById('status').innerText = "Lỗi: " + err.message;
+                console.error(err);
+                msg.innerText = "LỖI CAMERA SAU: " + err.message;
+                // Nếu không có camera sau (exact), thử lại với mode environment thường
+                if (err.name === "OverconstrainedError" || err.name === "NotFoundError") {
+                    alert("Không tìm thấy Camera sau chuyên dụng, đang thử chế độ mặc định.");
+                    location.href = location.href.replace('exact:', '');
+                }
             }
         });
     </script>
