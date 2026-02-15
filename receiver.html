@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Máy tính - Người nhận Video</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #121212; color: white; }
+        #video-display { width: 80%; max-width: 900px; margin: 20px auto; border: 3px solid #2563eb; border-radius: 10px; background: #000; }
+        video { width: 100%; border-radius: 7px; }
+        .info-box { background: #1e293b; padding: 15px; display: inline-block; border-radius: 8px; margin-top: 20px; }
+        .id-text { font-size: 24px; color: #fbbf24; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>MÀN HÌNH NHẬN VIDEO</h1>
+    
+    <div class="info-box">
+        <p>Gửi ID này cho điện thoại:</p>
+        <div id="my-id" class="id-text">Đang tạo ID...</div>
+    </div>
+
+    <div id="video-display">
+        <video id="remote-video" autoplay playsinline controls></video>
+    </div>
+
+    <script>
+        const peer = new Peer(); // Tạo kết nối Peer
+
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+        });
+
+        // Lắng nghe cuộc gọi từ điện thoại
+        peer.on('call', (call) => {
+            console.log("Có tín hiệu từ điện thoại...");
+            call.answer(); // Trả lời cuộc gọi (nhận luồng)
+            
+            call.on('stream', (remoteStream) => {
+                const video = document.getElementById('remote-video');
+                video.srcObject = remoteStream;
+            });
+        });
+    </script>
+</body>
+</html>
