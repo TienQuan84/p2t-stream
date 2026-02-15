@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Stream for OBS</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; background: transparent; color: white; overflow: hidden; text-align: center; }
+        /* Giao diện cho Máy tính/OBS */
+        #receiver-ui { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: rgba(0,0,0,0.8); }
+        #qr-code { background: white; padding: 15px; border-radius: 10px; }
+        video { width: 100vw; height: 100vh; object-fit: cover; display: none; }
+        
+        /* Giao diện cho Điện thoại */
+        #sender-ui { display: none; padding: 20px; background: #121212; height: 100vh; }
+        .btn { padding: 20px; font-size: 18px; background: #2563eb; color: white; border: none; border-radius: 10px; width: 100%; }
+        #preview { width: 100%; max-width: 300px; height: auto; display: block; margin: 10px auto; transform: scaleX(-1); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="receiver-ui">
+        <div id="setup-info">
+            <h2>QUÉT MÃ ĐỂ LIVE</h2>
+            <div id="qr-code"></div>
+            <p>ID: <span id="my-id">...</span></p>
+        </div>
+        <video id="remote-video" autoplay playsinline></video>
+    </div>
+
+    <div id="sender-ui">
+        <h2>ĐIỆN THOẠI ĐANG PHÁT</h2>
+        <video id="preview" autoplay playsinline muted></video>
+        <p id="status">Đang chờ kết nối...</p>
+        <button class="btn" onclick="location.reload()">DỪNG / LÀM MỚI</button>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        const urlParams = new URLSearchParams(window.location.search);
+        const joinId = urlParams.get('join');
+
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+            if (joinId) {
+                // Nếu là điện thoại
+                document.getElementById('receiver-ui').style.display = 'none';
+                document.getElementById('sender-ui').style.display = 'block';
+                startCamera(joinId);
+            } else {
+                // Nếu là máy tính/OBS
+                const joinUrl = window.location.href.split('?')[0] + "?join=" + id;
+                new QRCode(document.getElementById("qr-code"), { text: joinUrl, width: 200, height: 200 });
+            }
+        });
+
+        // Máy tính nhận cuộc gọi
+        peer.on('call', (call) => {
+            call.answer();
+            call.on('stream', (stream) => {
+                document.getElementById('setup-info').style.display = 'none';
+                const v = document.getElementById('remote-video');
+                v.style.display = 'block';
+                v.srcObject = stream;
+            });
+        });
+
+        async function startCamera(targetId) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: 1280, height: 720 }, 
+                    audio: true 
+                });
+                document.getElementById('preview').srcObject = stream;
+                peer.call(targetId, stream);
+                document.getElementById('status').innerText = "ĐANG TRUYỀN TỚI OBS...";
+            } catch (e) {
+                alert("Lỗi camera: " + e);
+            }
+        }
+    </script>
+</body>
+</html>
