@@ -2,21 +2,22 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Receiver 1080p</title>
+    <title>OBS Receiver Adaptive</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { margin: 0; background: transparent; overflow: hidden; font-family: sans-serif; }
-        #setup { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: rgba(0,0,0,0.8); color: white; text-align: center; }
-        #qr-code { background: white; padding: 15px; border-radius: 10px; }
-        video { width: 100vw; height: 100vh; object-fit: cover; display: none; } /* Đảm bảo tràn màn hình OBS */
+        body { margin: 0; background: transparent; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        #setup { position: absolute; text-align: center; color: white; font-family: sans-serif; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 15px; z-index: 10; }
+        #qr-code { background: white; padding: 10px; border-radius: 5px; }
+        /* Quan trọng: object-fit contain giúp xoay ngang/dọc không bị méo */
+        video { width: 100%; height: 100%; object-fit: contain; background: black; display: none; }
     </style>
 </head>
 <body>
     <div id="setup">
         <div id="qr-code"></div>
         <p>ID: <span id="my-id">...</span></p>
-        <p style="font-size: 12px; color: #aaa;">Quét mã để truyền 1080p</p>
+        <p style="font-size: 14px;">Quét để kết nối Camera Sau</p>
     </div>
     <video id="remote-video" autoplay playsinline></video>
 
@@ -27,16 +28,14 @@
 
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
-            // Tự động nhận diện link để tạo mã QR cho file phone.html
             const currentUrl = window.location.href.replace('obs.html', 'phone.html');
-            const joinUrl = currentUrl + "?join=" + id;
-            new QRCode(document.getElementById("qr-code"), { text: joinUrl, width: 250, height: 250 });
+            new QRCode(document.getElementById("qr-code"), { text: currentUrl + "?join=" + id, width: 220, height: 220 });
         });
 
         peer.on('call', (call) => {
-            call.answer(); 
+            call.answer();
             call.on('stream', (stream) => {
-                setup.style.display = 'none'; 
+                setup.style.display = 'none';
                 video.style.display = 'block';
                 video.srcObject = stream;
             });
