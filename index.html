@@ -8,33 +8,38 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background: transparent; color: white; overflow: hidden; text-align: center; }
-        /* Giao diện cho Máy tính/OBS */
-        #receiver-ui { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: rgba(0,0,0,0.8); }
-        #qr-code { background: white; padding: 15px; border-radius: 10px; }
-        video { width: 100vw; height: 100vh; object-fit: cover; display: none; }
+        
+        /* Giao diện lúc chờ kết nối (OBS sẽ thấy cái này đầu tiên) */
+        #receiver-ui { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: rgba(0,0,0,0.5); }
+        #qr-code { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .id-label { margin-top: 10px; font-size: 14px; opacity: 0.7; }
+
+        /* Video khi đã nhận luồng - Phủ kín khung hình OBS */
+        #remote-video { width: 100vw; height: 100vh; object-fit: cover; display: none; background: black; }
         
         /* Giao diện cho Điện thoại */
-        #sender-ui { display: none; padding: 20px; background: #121212; height: 100vh; }
-        .btn { padding: 20px; font-size: 18px; background: #2563eb; color: white; border: none; border-radius: 10px; width: 100%; }
-        #preview { width: 100%; max-width: 300px; height: auto; display: block; margin: 10px auto; transform: scaleX(-1); border-radius: 10px; }
+        #sender-ui { display: none; padding: 20px; background: #121212; height: 100vh; box-sizing: border-box; }
+        .btn { padding: 20px; font-size: 18px; background: #2563eb; color: white; border: none; border-radius: 10px; width: 100%; font-weight: bold; }
+        #preview { width: 100%; max-width: 400px; height: auto; display: block; margin: 20px auto; border-radius: 10px; border: 2px solid #333; }
+        .status-msg { margin: 15px; color: #60a5fa; font-size: 18px; }
     </style>
 </head>
 <body>
 
     <div id="receiver-ui">
-        <div id="setup-info">
-            <h2>QUÉT MÃ ĐỂ LIVE</h2>
+        <div id="setup-container">
+            <h2 style="margin-bottom:20px;">QUÉT MÃ ĐỂ KẾT NỐI OBS</h2>
             <div id="qr-code"></div>
-            <p>ID: <span id="my-id">...</span></p>
+            <p class="id-label">Peer ID: <span id="my-id">Đang tạo...</span></p>
         </div>
         <video id="remote-video" autoplay playsinline></video>
     </div>
 
     <div id="sender-ui">
-        <h2>ĐIỆN THOẠI ĐANG PHÁT</h2>
+        <h2 style="color: #10b981;">ĐANG PHÁT LIVE</h2>
         <video id="preview" autoplay playsinline muted></video>
-        <p id="status">Đang chờ kết nối...</p>
-        <button class="btn" onclick="location.reload()">DỪNG / LÀM MỚI</button>
+        <p id="status" class="status-msg">Sẵn sàng truyền tín hiệu...</p>
+        <button class="btn" onclick="location.reload()">DỪNG & LÀM MỚI</button>
     </div>
 
     <script>
@@ -45,39 +50,53 @@
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
             if (joinId) {
-                // Nếu là điện thoại
+                // Nếu URL có tham số ?join= thì đây là Điện thoại
                 document.getElementById('receiver-ui').style.display = 'none';
                 document.getElementById('sender-ui').style.display = 'block';
                 startCamera(joinId);
             } else {
-                // Nếu là máy tính/OBS
+                // Ngược lại đây là Máy tính / OBS
                 const joinUrl = window.location.href.split('?')[0] + "?join=" + id;
-                new QRCode(document.getElementById("qr-code"), { text: joinUrl, width: 200, height: 200 });
+                new QRCode(document.getElementById("qr-code"), { 
+                    text: joinUrl, 
+                    width: 250, 
+                    height: 250,
+                    correctLevel : QRCode.CorrectLevel.H
+                });
             }
         });
 
-        // Máy tính nhận cuộc gọi
+        // Khi máy tính nhận được cuộc gọi từ điện thoại
         peer.on('call', (call) => {
-            call.answer();
+            call.answer(); // Chấp nhận luồng video
             call.on('stream', (stream) => {
-                document.getElementById('setup-info').style.display = 'none';
-                const v = document.getElementById('remote-video');
-                v.style.display = 'block';
-                v.srcObject = stream;
+                // Ẩn mã QR và hiện video lên toàn màn hình
+                document.getElementById('setup-container').style.display = 'none';
+                document.getElementById('receiver-ui').style.background = 'transparent';
+                const videoEl = document.getElementById('remote-video');
+                videoEl.style.display = 'block';
+                videoEl.srcObject = stream;
             });
         });
 
         async function startCamera(targetId) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment", width: 1280, height: 720 }, 
+                    video: { 
+                        facingMode: "environment", // Ưu tiên camera sau
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }, 
                     audio: true 
                 });
                 document.getElementById('preview').srcObject = stream;
-                peer.call(targetId, stream);
-                document.getElementById('status').innerText = "ĐANG TRUYỀN TỚI OBS...";
+                
+                // Gọi tới máy tính và gửi luồng camera
+                const call = peer.call(targetId, stream);
+                document.getElementById('status').innerText = "ĐÃ KẾT NỐI VỚI OBS!";
             } catch (e) {
-                alert("Lỗi camera: " + e);
+                document.getElementById('status').innerText = "Lỗi Camera: " + e.message;
+                alert("Bạn cần mở bằng HTTPS và cho phép Camera.");
             }
         }
     </script>
