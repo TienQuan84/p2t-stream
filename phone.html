@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Sender 1080p</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #121212; color: white; margin: 0; padding: 20px; }
+        #preview { width: 100%; max-width: 360px; border-radius: 10px; border: 2px solid #2563eb; margin-top: 10px; }
+        .status { padding: 15px; margin: 10px; border-radius: 5px; background: #1e293b; color: #60a5fa; }
+        .btn-retry { padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 5px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h3>PHÁT TÍN HIỆU 1080P</h3>
+    <div id="status" class="status">Đang khởi tạo Peer...</div>
+    <video id="preview" autoplay playsinline muted></video>
+    <br>
+    <button class="btn-retry" onclick="location.reload()">KẾT NỐI LẠI</button>
+
+    <script>
+        const peer = new Peer();
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetId = urlParams.get('join');
+
+        peer.on('open', async (id) => {
+            if (!targetId) {
+                document.getElementById('status').innerText = "Lỗi: Thiếu ID máy nhận!";
+                return;
+            }
+            
+            document.getElementById('status').innerText = "Đang mở Camera 1080p...";
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: "environment",
+                        width: { min: 1280, ideal: 1920 }, // Ép độ phân giải cao
+                        height: { min: 720, ideal: 1080 },
+                        aspectRatio: 1.777777778 // Chuẩn 16:9
+                    },
+                    audio: true
+                });
+
+                document.getElementById('preview').srcObject = stream;
+                peer.call(targetId, stream);
+                document.getElementById('status').innerText = "ĐANG TRUYỀN: 1920x1080";
+                document.getElementById('status').style.color = "#10b981";
+
+            } catch (err) {
+                document.getElementById('status').innerText = "Lỗi: " + err.message;
+            }
+        });
+    </script>
+</body>
+</html>
