@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Sony A74 - Sender Control</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #111; color: white; text-align: center; }
+        video { width: 80%; max-width: 960px; border: 2px solid #444; border-radius: 10px; margin-top: 20px; background: #000; }
+        .controls { margin: 20px; padding: 20px; background: #222; display: inline-block; border-radius: 15px; }
+        .btn-live { padding: 12px 25px; background: #ff4444; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: #555; margin-right: 8px; }
+        .active { background: #00ff44; box-shadow: 0 0 10px #00ff44; }
+    </style>
+</head>
+<body>
+    <h1>SONY A7 IV - HIGH QUALITY STREAM</h1>
+    <video id="preview" autoplay playsinline muted></video>
+    
+    <div class="controls">
+        <div id="status-container">
+            <span id="dot" class="status-dot"></span>
+            <span id="status-text">Ready to Stream</span>
+        </div>
+        <br>
+        <button id="startBtn" class="btn-live">START RTMP STREAM</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('preview');
+        const startBtn = document.getElementById('startBtn');
+        const statusDot = document.getElementById('dot');
+        const statusText = document.getElementById('status-text');
+        let socket;
+
+        async function startStreaming() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 1920, height: 1080, frameRate: 30 },
+                    audio: true
+                });
+                video.srcObject = stream;
+
+                // Kết nối tới Server Node.js cục bộ
+                socket = new WebSocket('ws://localhost:3000');
+
+                socket.onopen = () => {
+                    statusDot.classList.add('active');
+                    statusText.innerText = "LIVE (RTMP)";
+                    
+                    const recorder = new MediaRecorder(stream, {
+                        mimeType: 'video/webm; codecs=vp8',
+                        videoBitsPerSecond: 8000000 // 8Mbps cho độ nét cực cao
+                    });
+
+                    recorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) socket.send(e.data);
+                    };
+                    recorder.start(100); // Gửi gói dữ liệu mỗi 0.1 giây
+                };
+
+                socket.onclose = () => {
+                    statusDot.classList.remove('active');
+                    statusText.innerText = "Disconnected";
+                };
+
+            } catch (err) {
+                alert("Lỗi: " + err.message);
+            }
+        }
+
+        startBtn.onclick = startStreaming;
+    </script>
+</body>
+</html>
