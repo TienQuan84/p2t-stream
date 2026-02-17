@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>OBS Receiver</title>
+    <style>
+        body { margin: 0; background: black; overflow: hidden; }
+        video { width: 1920px; height: 1080px; object-fit: cover; }
+        #overlay { position: absolute; top: 10px; left: 10px; color: red; font-family: sans-serif; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="overlay">REC ● SONY A7 IV</div>
+    <video id="videoPlayer" autoplay controls playsinline></video>
+
+    <script>
+        // Trong OBS, tốt nhất bạn nên dùng "Media Source" và điền:
+        // Input: rtmp://localhost/live/sony_a74
+        // Ở đây là code dự phòng nếu bạn muốn dùng qua Browser Source (cần thêm trình phát như HLS/Dash)
+        console.log("Đã sẵn sàng nhận luồng từ rtmp://localhost/live/sony_a74");
+    </script>
+</body>
+</html>
