@@ -2,22 +2,21 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Receiver Adaptive</title>
+    <title>OBS Receiver 1080p</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { margin: 0; background: transparent; overflow: hidden; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        #setup { position: absolute; text-align: center; color: white; font-family: sans-serif; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 15px; z-index: 10; }
-        #qr-code { background: white; padding: 10px; border-radius: 5px; }
-        /* Quan trọng: object-fit contain giúp xoay ngang/dọc không bị méo */
-        video { width: 100%; height: 100%; object-fit: contain; background: black; display: none; }
+        body { margin: 0; background: transparent; overflow: hidden; width: 1920px; height: 1080px; }
+        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.9); padding: 30px; border-radius: 20px; }
+        /* Object-fit cover giúp lấp đầy khung hình 1080p */
+        video { width: 1920px; height: 1080px; object-fit: cover; background: black; display: none; }
     </style>
 </head>
 <body>
     <div id="setup">
         <div id="qr-code"></div>
+        <h2>SẴN SÀNG NHẬN FULL HD</h2>
         <p>ID: <span id="my-id">...</span></p>
-        <p style="font-size: 14px;">Quét để kết nối Camera Sau</p>
     </div>
     <video id="remote-video" autoplay playsinline></video>
 
@@ -28,16 +27,21 @@
 
         peer.on('open', (id) => {
             document.getElementById('my-id').innerText = id;
-            const currentUrl = window.location.href.replace('obs.html', 'phone.html');
-            new QRCode(document.getElementById("qr-code"), { text: currentUrl + "?join=" + id, width: 220, height: 220 });
+            const currentUrl = window.location.href.split('?')[0].replace('obs.html', 'phone.html');
+            new QRCode(document.getElementById("qr-code"), { 
+                text: currentUrl + "?join=" + id, 
+                width: 250, 
+                height: 250 
+            });
         });
 
         peer.on('call', (call) => {
-            call.answer();
+            call.answer(); // Trả lời cuộc gọi
             call.on('stream', (stream) => {
                 setup.style.display = 'none';
                 video.style.display = 'block';
                 video.srcObject = stream;
+                console.log("Đã nhận luồng HD");
             });
         });
     </script>
