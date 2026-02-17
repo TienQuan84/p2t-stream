@@ -7,43 +7,59 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; text-align: center; background: #000; color: white; margin: 0; overflow: hidden; }
-        #preview { width: 50%; height: 60vh; object-fit: cover; background: #111; }
-        .indicator-container { padding: 20px; }
+        #preview { width: 100%; height: 60vh; object-fit: cover; background: #111; }
+        
+        .indicator-container { padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Chấm trạng thái */
         #status-btn { 
-            width: 80px; height: 80px; border-radius: 50%; border: none;
+            width: 60px; height: 60px; border-radius: 50%; border: none;
             background: #ff4444; /* Mặc định Đỏ */
             box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
-            transition: 0.3s; margin: 10px auto;
+            transition: 0.5s; margin: 10px auto;
         }
+        
+        /* Class khi hoạt động (Xanh) */
         .status-active { 
-            background: #00ff44 !important; /* Xanh khi có kết nối */
+            background: #00ff44 !important; 
             box-shadow: 0 0 25px rgba(0, 255, 68, 0.8) !important;
         }
-        .info { font-size: 14px; color: #aaa; margin-top: 10px; }
+        
+        #msg { font-weight: bold; margin-top: 10px; font-size: 18px; }
+        .info { font-size: 14px; color: #aaa; }
     </style>
 </head>
 <body>
     <video id="preview" autoplay playsinline muted></video>
     
-   
+    <div class="indicator-container">
+        <div id="status-btn"></div>
+        <div id="msg">ĐANG CHỜ KẾT NỐI...</div>
+        <div class="info">Trạng thái: <span id="peer-status">Khởi tạo...</span></div>
+    </div>
 
     <script>
-        const peer = new Peer();
         const statusBtn = document.getElementById('status-btn');
         const msg = document.getElementById('msg');
+        const peerStatus = document.getElementById('peer-status');
         const urlParams = new URLSearchParams(window.location.search);
         const targetId = urlParams.get('join');
 
+        const peer = new Peer();
+
         peer.on('open', async (id) => {
+            peerStatus.innerText = "Sẵn sàng (ID: " + id + ")";
+            
             if (!targetId) {
                 msg.innerText = "LỖI: THIẾU ID NHẬN";
                 return;
             }
 
             try {
+                // Lấy stream từ camera
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
-                        facingMode: { exact: "environment" }, // BẮT BUỘC CAMERA SAU
+                        facingMode: { ideal: "environment" }, 
                         width: { ideal: 1920 },
                         height: { ideal: 1080 }
                     },
@@ -51,38 +67,45 @@
                 });
 
                 document.getElementById('preview').srcObject = stream;
+
+                // Thực hiện cuộc gọi đến OBS
                 const call = peer.call(targetId, stream);
 
-                // Khi bắt đầu gọi thành công
-                call.on('stream', () => {
-                    statusBtn.classList.add('status-active');
-                    msg.innerText = "ĐANG TRUYỀN (LIVE)";
-                });
+                if (call) {
+                    // Khi OBS nhận được stream và bắt đầu phản hồi (WebRTC Handshake thành công)
+                    call.on('stream', () => {
+                        statusBtn.classList.add('status-active');
+                        msg.innerText = "LIVE: ĐANG TRUYỀN ĐẾN OBS";
+                    });
 
-                // Xử lý khi kết nối bị đóng
-                call.on('close', () => {
-                    statusBtn.classList.remove('status-active');
-                    msg.innerText = "ĐÃ NGẮT KẾT NỐI";
-                });
-
-                // Dự phòng cho PeerJS: nếu call được tạo, tạm thời hiện xanh
-                if(call) {
-                    statusBtn.classList.add('status-active');
-                    msg.innerText = "ĐANG TRUYỀN (LIVE)";
+                    // Xử lý khi kết nối bị ngắt
+                    call.on('close', () => {
+                        statusBtn.classList.remove('status-active');
+                        msg.innerText = "ĐÃ NGẮT KẾT NỐI";
+                    });
+                    
+                    // Backup: Nếu PeerJS không kích hoạt sự kiện stream kịp, 
+                    // ta vẫn hiện xanh sau 1s nếu call object tồn tại
+                    setTimeout(() => {
+                        if(call.open) {
+                            statusBtn.classList.add('status-active');
+                            msg.innerText = "LIVE: ĐANG TRUYỀN ĐẾN OBS";
+                        }
+                    }, 1500);
                 }
 
             } catch (err) {
                 console.error(err);
-                msg.innerText = "LỖI CAMERA SAU: " + err.message;
-                // Nếu không có camera sau (exact), thử lại với mode environment thường
-                if (err.name === "OverconstrainedError" || err.name === "NotFoundError") {
-                    alert("Không tìm thấy Camera sau chuyên dụng, đang thử chế độ mặc định.");
-                    location.href = location.href.replace('exact:', '');
-                }
+                msg.innerText = "LỖI CAMERA: " + err.message;
             }
+        });
+
+        // Xử lý lỗi kết nối chung
+        peer.on('error', (err) => {
+            statusBtn.classList.remove('status-active');
+            msg.innerText = "LỖI KẾT NỐI";
+            console.error(err);
         });
     </script>
 </body>
 </html>
-
-
