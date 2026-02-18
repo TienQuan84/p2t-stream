@@ -2,22 +2,50 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Receiver</title>
+    <title>MonaServer - OBS Receiver</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { margin: 0; background: black; overflow: hidden; }
-        video { width: 1920px; height: 1080px; object-fit: cover; }
-        #overlay { position: absolute; top: 10px; left: 10px; color: red; font-family: sans-serif; font-weight: bold; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #setup { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; }
+        #qr-code { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,255,0,0.3); }
+        .info { margin-top: 20px; text-align: center; }
+        video { width: 100vw; height: 100vh; object-fit: cover; display: none; }
+        .status-tag { background: #10b981; padding: 5px 15px; border-radius: 20px; font-size: 12px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <div id="overlay">REC ● SONY A7 IV</div>
-    <video id="videoPlayer" autoplay controls playsinline></video>
+    <div id="setup">
+        <div class="status-tag">MONASERVER ACTIVE</div>
+        <div id="qr-code"></div>
+        <div class="info">
+            <p>ID NHẬN: <strong id="my-id">Đang tạo...</strong></p>
+            <p style="font-size: 14px; color: #aaa;">Quét mã từ Sony/Phone để truyền tín hiệu</p>
+        </div>
+    </div>
+    <video id="remote-video" autoplay playsinline></video>
 
     <script>
-        // Trong OBS, tốt nhất bạn nên dùng "Media Source" và điền:
-        // Input: rtmp://localhost/live/sony_a74
-        // Ở đây là code dự phòng nếu bạn muốn dùng qua Browser Source (cần thêm trình phát như HLS/Dash)
-        console.log("Đã sẵn sàng nhận luồng từ rtmp://localhost/live/sony_a74");
+        const peer = new Peer();
+        const video = document.getElementById('remote-video');
+        const setup = document.getElementById('setup');
+
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+            // Tự động tìm file a74.html cùng thư mục
+            const currentUrl = window.location.href.replace('obs.html', 'a74.html');
+            const joinUrl = currentUrl + "?join=" + id;
+            new QRCode(document.getElementById("qr-code"), { text: joinUrl, width: 200, height: 200 });
+        });
+
+        peer.on('call', (call) => {
+            call.answer(); 
+            call.on('stream', (stream) => {
+                setup.style.display = 'none'; 
+                video.style.display = 'block';
+                video.srcObject = stream;
+            });
+        });
     </script>
 </body>
 </html>
