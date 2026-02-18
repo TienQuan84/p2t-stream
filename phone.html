@@ -2,85 +2,127 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phone Sender Full HD</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A74 Football Sender</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #000; color: white; margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        #preview { width: 90%; max-height: 70vh; border: 2px solid #333; border-radius: 10px; background: #111; object-fit: cover; }
-        .status-box { margin-top: 20px; text-align: center; }
-        #indicator { width: 20px; height: 20px; border-radius: 50%; display: inline-block; margin-right: 10px; vertical-align: middle; }
-        .red { background: #ff4444; box-shadow: 0 0 10px #ff4444; }
-        .green { background: #00ff44; box-shadow: 0 0 10px #00ff44; }
-        #msg { font-size: 18px; font-weight: bold; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #0f172a; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        
+        .status-box {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 80%;
+            max-width: 320px;
+        }
+
+        #indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+        }
+
+        .red { 
+            background-color: #ef4444; 
+            box-shadow: 0 0 10px #ef4444; 
+            animation: blink 1s infinite;
+        }
+
+        .green { 
+            background-color: #10b981; 
+            box-shadow: 0 0 10px #10b981; 
+        }
+
+        #msg {
+            font-weight: bold;
+            font-size: 16px;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .btn-retry {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #334155;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-   
+
+    <div class="status-box">
+        <div id="indicator" class="red"></div>
+        <span id="msg">ĐANG CHỜ OBS KẾT NỐI...</span>
+        <p style="font-size: 12px; color: #94a3b8; margin-top: 5px;">Độ phân giải mục tiêu: 1920x1080</p>
+    </div>
+
+    <button class="btn-retry" onclick="location.reload()">KẾT NỐI LẠI</button>
+
     <script>
-        const preview = document.getElementById('preview');
-        const indicator = document.getElementById('indicator');
-        const msg = document.getElementById('msg');
         const urlParams = new URLSearchParams(window.location.search);
         const targetId = urlParams.get('join');
-
         const peer = new Peer();
-        let localStream = null;
+        const indicator = document.getElementById('indicator');
+        const msg = document.getElementById('msg');
 
-        peer.on('open', (id) => {
-            console.log('Peer ID:', id);
-            // Tự động gọi ngay khi có targetId
-            if (targetId) {
-                startHDStream();
+        peer.on('open', async (id) => {
+            if (!targetId) {
+                msg.innerText = "LỖI: THIẾU ID MÁY NHẬN!";
+                return;
             }
-        });
+            
+            msg.innerText = "ĐANG MỞ CAMERA SONY/PHONE...";
 
-        async function startHDStream() {
             try {
-                // Cấu hình Full HD 1080p chuẩn
-                const constraints = {
-                    video: {
-                        facingMode: { ideal: "environment" },
-                        width: { min: 1280, ideal: 1920, max: 1920 },
-                        height: { min: 720, ideal: 1080, max: 1080 },
-                        frameRate: { ideal: 30, max: 60 }
+                // Cấu hình tối ưu cho bóng đá: 1080p, 60fps, không lọc âm
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: "environment",
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 60 }
                     },
-                    audio: true
-                };
-
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                preview.srcObject = localStream;
-
-                const call = peer.call(targetId, localStream);
-
-                // Khi kết nối thành công (có tín hiệu phản hồi từ OBS)
-                call.on('stream', () => {
-                    indicator.className = 'green';
-                    msg.innerText = "ĐANG PHÁT (FULL HD)";
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false
+                    }
                 });
 
-                call.on('close', () => {
-                    handleDisconnect();
-                });
+                const call = peer.call(targetId, stream);
+                
+                // Khi kết nối thành công
+                indicator.classList.remove('red');
+                indicator.classList.add('green');
+                msg.innerText = "ĐANG TRUYỀN TÍN HIỆU LIVE";
+                msg.style.color = "#10b981";
 
             } catch (err) {
-                console.error(err);
-                msg.innerText = "LỖI: " + err.message;
+                msg.innerText = "LỖI CAMERA: " + err.message;
+                indicator.style.animation = "none";
             }
-        }
-
-        function handleDisconnect() {
-            indicator.className = 'red';
-            msg.innerText = "ĐÃ NGẮT KẾT NỐI";
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-        }
-
-        // Theo dõi trạng thái kết nối Peer
-        peer.on('disconnected', handleDisconnect);
-        peer.on('error', handleDisconnect);
+        });
     </script>
 </body>
 </html>
-
