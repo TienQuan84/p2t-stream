@@ -2,88 +2,64 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Receiver 1080p - High Stability</title>
+    <title>OBS Receiver 1080p</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { margin: 0; background: transparent; overflow: hidden; width: 1920px; height: 1080px; font-family: sans-serif; }
-        
-        #setup { 
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%); 
-            text-align: center; 
-            color: white; 
-            background: rgba(0,0,0,0.9); 
-            padding: 40px; 
-            border-radius: 30px; 
-            border: 2px solid #444; 
-        }
-
-        /* Video lấp đầy khung hình OBS */
+        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.9); padding: 40px; border-radius: 30px; border: 2px solid #444; }
         video { width: 1920px; height: 1080px; object-fit: cover; background: black; display: none; }
-
-        /* QR Code wrapper */
-        #qr-code { 
-            display: flex; 
-            justify-content: center; 
-            background: white; 
-            padding: 20px; 
-            border-radius: 15px;
-            margin-bottom: 10px;
-        }
+        #qr-code { display: flex; justify-content: center; background: white; padding: 20px; border-radius: 15px; }
     </style>
 </head>
 <body>
     <div id="setup">
         <div id="qr-code"></div>
-        <h2 style="margin-top: 20px; font-size: 28px;">QUÉT ĐỂ TRUYỀN HÌNH</h2>
+        <h2 id="msg" style="margin-top: 20px; font-size: 28px;">QUÉT ĐỂ TRUYỀN HÌNH</h2>
     </div>
-
     <video id="remote-video" autoplay playsinline></video>
 
     <script>
-        // Cấu hình STUN để chạy được khác mạng
         const peer = new Peer({
             config: {
                 'iceServers': [
                     { url: 'stun:stun.l.google.com:19302' },
                     { url: 'stun:stun1.l.google.com:19302' },
-                    { url: 'stun:stun2.l.google.com:19302' }
-                ]
+                    { url: 'stun:stun2.l.google.com:19302' },
+                    { url: 'stun:stun3.l.google.com:19302' },
+                    { url: 'stun:stun4.l.google.com:19302' }
+                ],
+                'sdpSemantics': 'unified-plan'
             }
         });
 
         const video = document.getElementById('remote-video');
         const setup = document.getElementById('setup');
+        const msg = document.getElementById('msg');
 
         peer.on('open', (id) => {
-            console.log("My ID: " + id);
-            
-            // Tự động nhận diện URL hiện tại để tạo link cho điện thoại
             const currentUrl = window.location.href.split('?')[0].replace('obs.html', 'phone.html');
-            
             new QRCode(document.getElementById("qr-code"), { 
                 text: currentUrl + "?join=" + id, 
-                width: 450, 
-                height: 450,
-                correctLevel: QRCode.CorrectLevel.H // Tăng mức độ sửa lỗi để quét nhạy hơn
+                width: 450, height: 450,
+                correctLevel: QRCode.CorrectLevel.H 
             });
         });
 
         peer.on('call', (call) => {
+            msg.innerText = "ĐANG KẾT NỐI...";
             call.answer(); 
             call.on('stream', (stream) => {
-                // Khi nhận được luồng, ẩn bảng hướng dẫn và hiện video
                 setup.style.display = 'none';
                 video.style.display = 'block';
                 video.srcObject = stream;
+                video.play(); // Ép buộc phát
             });
         });
 
         peer.on('error', (err) => {
-            console.error("Lỗi Peer:", err.type);
+            console.error("Lỗi:", err.type);
+            if(err.type === 'network') alert("Lỗi mạng! Hãy kiểm tra HTTPS.");
         });
     </script>
 </body>
