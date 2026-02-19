@@ -2,101 +2,91 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phone-to-OBS Camera</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phone-to-OBS</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; width: 100vw; overflow: hidden; }
-        #preview { width: 50%; height: 50%; object-fit: contain; background: #000; }
-        #info { position: absolute; bottom: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; font-size: 12px; }
+        body { margin: 0; padding: 0; background: #000; display: flex; flex-direction: column; align-items: center; height: 100vh; font-family: sans-serif; }
+        /* Preview nằm ở Top, kích thước 50% */
+        #preview { width: 50%; height: auto; aspect-ratio: 16/9; object-fit: contain; background: #222; border-bottom: 2px solid #444; align-self: flex-start; }
+        #info { margin-top: 30px; color: white; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; text-align: center; width: 80%; }
+        #status-dot { display: inline-block; width: 10px; height: 10px; background: red; border-radius: 50%; margin-right: 8px; }
     </style>
 </head>
 <body>
 
     <video id="preview" autoplay playsinline muted></video>
-    <div id="info">Đang khởi tạo...</div>
+    
+    <div id="info">
+        <div id="status-text"><span id="status-dot"></span> Đang kết nối...</div>
+    </div>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const targetId = urlParams.get('join');
         const videoPreview = document.getElementById('preview');
-        const info = document.getElementById('info');
+        const statusText = document.getElementById('status-text');
+        const statusDot = document.getElementById('status-dot');
 
-        // Bổ sung STUN Server tương tự phía OBS
-        // Thay thế đoạn config cũ trong cả 2 file:
         const peer = new Peer({
             config: {
                 'iceServers': [
-                    { url: 'stun:stun.l.google.com:19302' },
-                    {
-                        urls: 'turn:openrelay.metered.ca:443',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    {
-                        urls: 'turn:openrelay.metered.ca:80',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { 
+                        urls: 'turn:openrelay.metered.ca:443', 
+                        username: 'openrelayproject', 
+                        credential: 'openrelayproject' 
                     }
-                ],
-                'sdpSemantics': 'unified-plan'
+                ]
             }
         });
 
         peer.on('open', (id) => {
             if (!targetId) {
-                alert("LỖI: Không tìm thấy ID máy nhận OBS!");
+                statusText.innerText = "LỖI: Thiếu ID OBS!";
                 return;
             }
-            
-            info.innerText = "Đã sẵn sàng. Đang kết nối tới OBS...";
 
-            // Delay 1 giây để ổn định mạng trước khi phát
-            setTimeout(async () => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { 
-                            facingMode: "environment",
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 },
-                            frameRate: { ideal: 60 }
-                        },
-                        audio: {
-                            echoCancellation: false,
-                            noiseSuppression: false,
-                            autoGainControl: false
-                        }
-                    });
+            // Gọi ngay sau khi mở Peer
+            startStreaming();
+        });
 
-                    videoPreview.srcObject = stream;
-                    
-                    // Thực hiện cuộc gọi
-                    const call = peer.call(targetId, stream);
-                    
+        async function startStreaming() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: "environment",
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 } // Để 30fps cho ổn định khi chạy 4G
+                    },
+                    audio: true
+                });
+
+                videoPreview.srcObject = stream;
+                
+                // Bắt đầu gọi cho OBS
+                const call = peer.call(targetId, stream);
+                
+                if (call) {
+                    statusText.innerText = "ĐANG GỬI TÍN HIỆU...";
+                    statusDot.style.background = "orange";
+
                     call.on('stream', () => {
-                        info.innerText = "ĐANG TRUYỀN: 1080p 60fps";
-                        info.style.color = "#00ff00";
+                        statusText.innerText = "TRỰC TIẾP: ĐÃ KẾT NỐI OBS";
+                        statusDot.style.background = "#00ff00";
                     });
-
-                } catch (err) {
-                    console.error(err);
-                    alert("Lỗi Camera: Hãy đảm bảo dùng HTTPS và đã cấp quyền.");
                 }
-            }, 1000);
-        });
 
-        peer.on('disconnected', () => {
-            info.innerText = "Mất kết nối. Đang thử lại...";
-            peer.reconnect();
-        });
+            } catch (err) {
+                statusText.innerText = "LỖI: Không mở được Camera!";
+                console.error(err);
+            }
+        }
 
         peer.on('error', (err) => {
-            console.error("Peer Error:", err);
-            info.innerText = "Lỗi kết nối: " + err.type;
+            statusText.innerText = "Lỗi Peer: " + err.type;
         });
     </script>
 </body>
 </html>
-
-
-
