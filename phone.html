@@ -6,11 +6,47 @@
     <title>Phone-to-OBS</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; display: flex; flex-direction: column; align-items: center; height: 100vh; font-family: sans-serif; }
-        /* Preview nằm ở Top, kích thước 50% */
-        #preview { width: 50%; height: auto; aspect-ratio: 16/9; object-fit: contain; background: #222; border-bottom: 2px solid #444; align-self: flex-start; align-items: center;}
-        #info { margin-top: 30px; color: white; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; text-align: center; width: 80%; }
-        #status-dot { display: inline-block; width: 10px; height: 10px; background: red; border-radius: 50%; margin-right: 8px; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: #000; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; /* Căn giữa tất cả các phần tử theo chiều ngang */
+            height: 100vh; 
+            font-family: sans-serif; 
+        }
+
+        /* Preview nằm ở Top và ở Giữa */
+        #preview { 
+            width: 50%; 
+            height: auto; 
+            aspect-ratio: 16/9; 
+            object-fit: contain; 
+            background: #222; 
+            border-bottom: 2px solid #444;
+            /* Đảm bảo nằm ở trên cùng và căn giữa */
+            align-self: center; 
+        }
+
+        #info { 
+            margin-top: 30px; 
+            color: white; 
+            background: rgba(255,255,255,0.1); 
+            padding: 15px; 
+            border-radius: 10px; 
+            text-align: center; 
+            width: 80%; 
+        }
+
+        #status-dot { 
+            display: inline-block; 
+            width: 10px; 
+            height: 10px; 
+            background: red; 
+            border-radius: 50%; 
+            margin-right: 8px; 
+        }
     </style>
 </head>
 <body>
@@ -32,6 +68,7 @@
             config: {
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
                     { 
                         urls: 'turn:openrelay.metered.ca:443', 
                         username: 'openrelayproject', 
@@ -46,8 +83,6 @@
                 statusText.innerText = "LỖI: Thiếu ID OBS!";
                 return;
             }
-
-            // Gọi ngay sau khi mở Peer
             startStreaming();
         });
 
@@ -58,14 +93,12 @@
                         facingMode: "environment",
                         width: { ideal: 1920 },
                         height: { ideal: 1080 },
-                        frameRate: { ideal: 30 } // Để 30fps cho ổn định khi chạy 4G
+                        frameRate: { ideal: 30 }
                     },
                     audio: true
                 });
 
                 videoPreview.srcObject = stream;
-                
-                // Bắt đầu gọi cho OBS
                 const call = peer.call(targetId, stream);
                 
                 if (call) {
@@ -77,7 +110,6 @@
                         statusDot.style.background = "#00ff00";
                     });
                 }
-
             } catch (err) {
                 statusText.innerText = "LỖI: Không mở được Camera!";
                 console.error(err);
@@ -90,4 +122,3 @@
     </script>
 </body>
 </html>
-
