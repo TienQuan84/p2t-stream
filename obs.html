@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { margin: 0; background: transparent; overflow: hidden; width: 1920px; height: 1080px; font-family: sans-serif; }
-        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.9); padding: 40px; border-radius: 30px; border: 2px solid #444; }
+        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.95); padding: 40px; border-radius: 30px; border: 2px solid #444; }
         video { width: 1920px; height: 1080px; object-fit: cover; background: black; display: none; }
         #qr-code { display: flex; justify-content: center; background: white; padding: 20px; border-radius: 15px; }
     </style>
@@ -16,27 +16,23 @@
     <div id="setup">
         <div id="qr-code"></div>
         <h2 id="msg" style="margin-top: 20px; font-size: 28px;">QUÉT ĐỂ TRUYỀN HÌNH</h2>
+        <p id="peer-id-display" style="color: #888; font-size: 14px;">Đang khởi tạo...</p>
     </div>
     <video id="remote-video" autoplay playsinline></video>
 
     <script>
-        // Thay thế đoạn config cũ trong cả 2 file:
+        // Cấu hình ICE bao gồm STUN và TURN (Quan trọng để chạy khác mạng)
         const peer = new Peer({
             config: {
                 'iceServers': [
-                    { url: 'stun:stun.l.google.com:19302' },
-                    {
-                        urls: 'turn:openrelay.metered.ca:443',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    {
-                        urls: 'turn:openrelay.metered.ca:80',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { 
+                        urls: 'turn:openrelay.metered.ca:443', 
+                        username: 'openrelayproject', 
+                        credential: 'openrelayproject' 
                     }
-                ],
-                'sdpSemantics': 'unified-plan'
+                ]
             }
         });
 
@@ -45,6 +41,7 @@
         const msg = document.getElementById('msg');
 
         peer.on('open', (id) => {
+            document.getElementById('peer-id-display').innerText = "ID: " + id;
             const currentUrl = window.location.href.split('?')[0].replace('obs.html', 'phone.html');
             new QRCode(document.getElementById("qr-code"), { 
                 text: currentUrl + "?join=" + id, 
@@ -60,15 +57,14 @@
                 setup.style.display = 'none';
                 video.style.display = 'block';
                 video.srcObject = stream;
-                video.play(); // Ép buộc phát
+                video.play().catch(e => console.log("Auto-play blocked", e));
             });
         });
 
         peer.on('error', (err) => {
-            console.error("Lỗi:", err.type);
-            if(err.type === 'network') alert("Lỗi mạng! Hãy kiểm tra HTTPS.");
+            console.error("Lỗi Peer:", err);
+            if(err.type === 'network') alert("Lỗi mạng! Kiểm tra kết nối Internet.");
         });
     </script>
 </body>
 </html>
-
