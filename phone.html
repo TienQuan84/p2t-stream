@@ -3,75 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>phone-obs</title>
+    <title>Phone-to-OBS Camera</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            padding: 0; 
-            background: #000; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
-            width: 100vw;
-            overflow: hidden;
-        }
-        
-        #preview { 
-            width: 60%; 
-            height: 60%; 
-            object-fit: contain; /* Giữ nguyên tỉ lệ khung hình 16:9 của máy ảnh */
-            background: #000;
-        }
+        body { margin: 0; padding: 0; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; width: 100vw; overflow: hidden; }
+        #preview { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        #info { position: absolute; bottom: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; font-size: 12px; }
     </style>
 </head>
 <body>
 
     <video id="preview" autoplay playsinline muted></video>
+    <div id="info">Đang khởi tạo...</div>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const targetId = urlParams.get('join');
-        const peer = new Peer();
         const videoPreview = document.getElementById('preview');
+        const info = document.getElementById('info');
 
-        peer.on('open', async (id) => {
+        // Bổ sung STUN Server tương tự phía OBS
+        const peer = new Peer({
+            config: {
+                'iceServers': [
+                    { url: 'stun:stun.l.google.com:19302' },
+                    { url: 'stun:stun1.l.google.com:19302' },
+                    { url: 'stun:stun2.l.google.com:19302' }
+                ]
+            }
+        });
+
+        peer.on('open', (id) => {
             if (!targetId) {
                 alert("LỖI: Không tìm thấy ID máy nhận OBS!");
                 return;
             }
+            
+            info.innerText = "Đã sẵn sàng. Đang kết nối tới OBS...";
 
-            try {
-                // Cấu hình tối ưu cao nhất cho bóng đá (1080p 60fps)
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: "environment",
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                        frameRate: { ideal: 60 }
-                    },
-                    audio: {
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false
-                    }
-                });
+            // Delay 1 giây để ổn định mạng trước khi phát
+            setTimeout(async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            facingMode: "environment",
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            frameRate: { ideal: 60 }
+                        },
+                        audio: {
+                            echoCancellation: false,
+                            noiseSuppression: false,
+                            autoGainControl: false
+                        }
+                    });
 
-                // Hiển thị lên màn hình tại chỗ
-                videoPreview.srcObject = stream;
-                
-                // Tự động gọi đến OBS
-                peer.call(targetId, stream);
+                    videoPreview.srcObject = stream;
+                    
+                    // Thực hiện cuộc gọi
+                    const call = peer.call(targetId, stream);
+                    
+                    call.on('stream', () => {
+                        info.innerText = "ĐANG TRUYỀN: 1080p 60fps";
+                        info.style.color = "#00ff00";
+                    });
 
-            } catch (err) {
-                alert("Lỗi Camera: Hãy đảm bảo dùng HTTPS và đã cấp quyền.");
-            }
+                } catch (err) {
+                    console.error(err);
+                    alert("Lỗi Camera: Hãy đảm bảo dùng HTTPS và đã cấp quyền.");
+                }
+            }, 1000);
         });
 
-        // Cơ chế tự động kết nối lại ngầm
-        peer.on('disconnected', () => peer.reconnect());
+        peer.on('disconnected', () => {
+            info.innerText = "Mất kết nối. Đang thử lại...";
+            peer.reconnect();
+        });
+
+        peer.on('error', (err) => {
+            console.error("Peer Error:", err);
+            info.innerText = "Lỗi kết nối: " + err.type;
+        });
     </script>
 </body>
 </html>
-
