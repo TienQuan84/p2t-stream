@@ -45,8 +45,8 @@
             const currentUrl = window.location.href.split('?')[0].replace('obs.html', 'phone.html');
             new QRCode(document.getElementById("qr-code"), { 
                 text: currentUrl + "?join=" + id, 
-                width: 500, 
-                height: 500 
+                width: 800, 
+                height: 800 
             });
         });
 
@@ -68,3 +68,4 @@
     </script>
 </body>
 </html>
+
