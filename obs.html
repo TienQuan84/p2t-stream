@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.1/qrcode.min.js"></script>
     <style>
         body { margin: 0; background: transparent; overflow: hidden; width: 1920px; height: 1080px; font-family: sans-serif; }
-        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.95); padding: 40px; border-radius: 30px; border: 2px solid #444; }
+        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.9); padding: 40px; border-radius: 30px; border: 2px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         video { width: 1920px; height: 1080px; object-fit: cover; background: black; display: none; }
         #qr-code { display: flex; justify-content: center; background: white; padding: 20px; border-radius: 15px; min-height: 450px; min-width: 450px; }
     </style>
@@ -16,22 +16,17 @@
     <div id="setup">
         <div id="qr-code"></div>
         <h2 id="msg" style="margin-top: 20px; font-size: 28px;">QUÉT ĐỂ TRUYỀN HÌNH</h2>
-        <p id="peer-id-display" style="color: #888; font-size: 14px;">Đang khởi tạo tín hiệu...</p>
+        <p id="peer-id-display" style="color: #888; font-size: 14px;">Đang kết nối server...</p>
     </div>
     <video id="remote-video" autoplay playsinline></video>
 
     <script>
-        // Khởi tạo PeerJS với server STUN/TURN để chạy được ngoài mạng LAN
+        // Cấu hình tối giản để tránh lỗi Network trên một số đường truyền
         const peer = new Peer({
             config: {
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { 
-                        urls: 'turn:openrelay.metered.ca:443', 
-                        username: 'openrelayproject', 
-                        credential: 'openrelayproject' 
-                    }
+                    { urls: 'stun:stun1.l.google.com:19302' }
                 ]
             }
         });
@@ -42,40 +37,31 @@
         const peerDisplay = document.getElementById('peer-id-display');
 
         peer.on('open', (id) => {
-            console.log("Peer ID của bạn là: " + id);
             peerDisplay.innerText = "ID: " + id;
             
-            // Tự động tạo link dẫn đến file phone.html dựa trên URL hiện tại
+            // Xây dựng đường dẫn phone.html chuẩn từ GitHub Pages
             let currentUrl = window.location.href.split('?')[0];
             if (currentUrl.endsWith('obs.html')) {
                 currentUrl = currentUrl.replace('obs.html', 'phone.html');
-            } else if (currentUrl.endsWith('/')) {
-                currentUrl = currentUrl + 'phone.html';
             } else {
                 currentUrl = currentUrl.substring(0, currentUrl.lastIndexOf('/') + 1) + 'phone.html';
             }
 
-            // Xóa mã QR cũ nếu có và tạo mới
             document.getElementById("qr-code").innerHTML = "";
             new QRCode(document.getElementById("qr-code"), { 
                 text: currentUrl + "?join=" + id, 
-                width: 450, 
-                height: 450,
-                correctLevel: QRCode.CorrectLevel.H 
+                width: 450, height: 450
             });
         });
 
         peer.on('call', (call) => {
-            msg.innerText = "ĐANG KẾT NỐI...";
-            call.answer(); // Trả lời cuộc gọi từ điện thoại
-            
+            msg.innerText = "ĐANG NHẬN TÍN HIỆU...";
+            call.answer(); 
             call.on('stream', (stream) => {
                 setup.style.display = 'none';
                 video.style.display = 'block';
                 video.srcObject = stream;
-                // Thêm tương tác để tránh bị trình duyệt chặn Auto-play
-                video.play().catch(e => {
-                    console.log("Auto-play bị chặn, đang thử lại...", e);
+                video.play().catch(() => {
                     msg.innerText = "NHẤN VÀO MÀN HÌNH ĐỂ XEM";
                     setup.style.display = 'block';
                 });
@@ -83,8 +69,8 @@
         });
 
         peer.on('error', (err) => {
-            console.error("Lỗi PeerJS:", err.type);
-            peerDisplay.innerText = "Lỗi kết nối: " + err.type;
+            console.error("Lỗi:", err.type);
+            peerDisplay.innerText = "Lỗi: " + err.type + ". Vui lòng F5 trang.";
         });
     </script>
 </body>
