@@ -2,8 +2,8 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Receiver 1080p</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <title>OBS Receiver 1080p - Fixed</title>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { margin: 0; background: transparent; overflow: hidden; width: 1920px; height: 1080px; font-family: sans-serif; }
@@ -16,14 +16,19 @@
     <div id="setup">
         <div id="qr-code"></div>
         <h2 id="msg" style="margin-top: 20px; font-size: 28px;">QUÉT ĐỂ TRUYỀN HÌNH</h2>
-        <p id="peer-id-display" style="color: #888; font-size: 14px;">Đang kết nối tín hiệu...</p>
+        <p id="peer-id-display" style="color: #888; font-size: 14px;">Đang kết nối server tin cậy...</p>
     </div>
     <video id="remote-video" autoplay playsinline></video>
 
     <script>
-        // Tạo một ID ngẫu nhiên để tránh việc server PeerJS bị kẹt
-        const randomId = 'obs-' + Math.floor(Math.random() * 999999);
-        const peer = new Peer(randomId);
+        // Sử dụng cấu hình kết nối an toàn hơn
+        const peer = new Peer('obs-' + Math.floor(Math.random() * 99999), {
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            secure: true,
+            debug: 3
+        });
 
         const video = document.getElementById('remote-video');
         const setup = document.getElementById('setup');
@@ -31,18 +36,12 @@
         const peerDisplay = document.getElementById('peer-id-display');
 
         peer.on('open', (id) => {
-            console.log("ID nhận được: " + id);
-            peerDisplay.innerText = "ID: " + id;
-            
-            // Tạo link chuẩn cho phone.html
+            peerDisplay.innerText = "ID SẴN SÀNG: " + id;
             let currentUrl = window.location.href.split('?')[0].replace('obs.html', 'phone.html');
-            
-            // Xóa cái cũ, vẽ cái mới
             document.getElementById("qr-code").innerHTML = "";
             new QRCode(document.getElementById("qr-code"), { 
                 text: currentUrl + "?join=" + id, 
-                width: 450, 
-                height: 450
+                width: 450, height: 450 
             });
         });
 
@@ -53,13 +52,17 @@
                 setup.style.display = 'none';
                 video.style.display = 'block';
                 video.srcObject = stream;
-                video.play();
+                video.play().catch(e => console.log("Lỗi tự chạy:", e));
             });
         });
 
         peer.on('error', (err) => {
-            console.error(err);
-            peerDisplay.innerText = "Lỗi: " + err.type + ". Hãy F5 lại OBS.";
+            console.error("Lỗi chi tiết:", err.type);
+            if(err.type === 'network') {
+                peerDisplay.innerText = "LỖI MẠNG: Wi-Fi của bạn đang chặn kết nối (Hãy thử dùng 4G cho điện thoại và phát Wi-Fi cho máy tính)";
+            } else {
+                peerDisplay.innerText = "Lỗi: " + err.type;
+            }
         });
     </script>
 </body>
