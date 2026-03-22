@@ -3,121 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Phone-to-OBS</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>Phone Transmitter - 1080p + Mic</title>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            padding: 0; 
-            background: #000; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; /* Căn giữa tất cả các phần tử theo chiều ngang */
-            height: 100vh; 
-            font-family: sans-serif; 
-        }
-
-        /* Preview nằm ở Top và ở Giữa */
-        #preview { 
-            width: 50%; 
-            height: auto; 
-            aspect-ratio: 16/9; 
-            object-fit: contain; 
-            background: #222; 
-            border-bottom: 2px solid #444;
-            /* Đảm bảo nằm ở trên cùng và căn giữa */
-            align-self: center; 
-        }
-
-        #info { 
-            margin-top: 30px; 
-            color: white; 
-            background: rgba(255,255,255,0.1); 
-            padding: 15px; 
-            border-radius: 10px; 
-            text-align: center; 
-            width: 80%; 
-        }
-
-        #status-dot { 
-            display: inline-block; 
-            width: 10px; 
-            height: 10px; 
-            background: red; 
-            border-radius: 50%; 
-            margin-right: 8px; 
-        }
+        body { margin: 0; background: #111; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        video { width: 90%; border-radius: 15px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .controls { margin-top: 20px; text-align: center; }
+        .btn { background: #2ecc71; border: none; padding: 15px 30px; color: white; border-radius: 50px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn:active { transform: scale(0.95); background: #27ae60; }
+        #status { margin-top: 15px; color: #888; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <video id="preview" autoplay playsinline muted></video>
+    <video id="local-video" autoplay playsinline muted></video>
     
-    <div id="info">
-        <div id="status-text"><span id="status-dot"></span> Đang kết nối...</div>
+    <div class="controls">
+        <button id="start-btn" class="btn">BẮT ĐẦU TRUYỀN (MIC + VIDEO)</button>
+        <div id="status">Chưa kết nối</div>
     </div>
 
     <script>
+        const statusDisp = document.getElementById('status');
+        const startBtn = document.getElementById('start-btn');
+        const localVideo = document.getElementById('local-video');
+
+        // Lấy ID từ URL (được tạo từ QR Code)
         const urlParams = new URLSearchParams(window.location.search);
-        const targetId = urlParams.get('join');
-        const videoPreview = document.getElementById('preview');
-        const statusText = document.getElementById('status-text');
-        const statusDot = document.getElementById('status-dot');
+        const joinId = urlParams.get('join');
 
         const peer = new Peer({
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            secure: true,
+            debug: 1,
             config: {
-                'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { 
-                        urls: 'turn:openrelay.metered.ca:443', 
-                        username: 'openrelayproject', 
-                        credential: 'openrelayproject' 
-                    }
-                ]
+                'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }]
             }
         });
 
-        peer.on('open', (id) => {
-            if (!targetId) {
-                statusText.innerText = "LỖI: Thiếu ID OBS!";
+        startBtn.onclick = async () => {
+            if (!joinId) {
+                alert("Không tìm thấy ID đích. Hãy quét lại mã QR!");
                 return;
             }
-            startStreaming();
-        });
 
-        async function startStreaming() {
             try {
+                statusDisp.innerText = "Đang xin quyền Camera & Mic...";
+                
+                // Cấu hình 1080p và lấy Audio
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        facingMode: "environment",
+                    video: {
                         width: { ideal: 1920 },
                         height: { ideal: 1080 },
+                        facingMode: "environment", // Sử dụng camera sau
                         frameRate: { ideal: 30 }
                     },
-                    audio: true
+                    audio: true // QUAN TRỌNG: Cho phép gửi Mic
                 });
 
-                videoPreview.srcObject = stream;
-                const call = peer.call(targetId, stream);
-                
-                if (call) {
-                    statusText.innerText = "ĐANG GỬI TÍN HIỆU...";
-                    statusDot.style.background = "orange";
+                localVideo.srcObject = stream;
+                statusDisp.innerText = "Đang gọi tới OBS...";
 
-                    call.on('stream', () => {
-                        statusText.innerText = "TRỰC TIẾP: ĐÃ KẾT NỐI OBS";
-                        statusDot.style.background = "#00ff00";
-                    });
-                }
+                // Thực hiện cuộc gọi tới ID của OBS
+                const call = peer.call(joinId, stream);
+                
+                call.on('stream', () => {
+                    statusDisp.innerText = "ĐANG TRUYỀN TÍN HIỆU...";
+                    startBtn.style.background = "#e74c3c";
+                    startBtn.innerText = "ĐANG TRUYỀN (1080p)";
+                });
+
+                // Xử lý khi kết nối bị ngắt
+                call.on('close', () => {
+                    alert("Kết nối đã đóng");
+                    location.reload();
+                });
+
             } catch (err) {
-                statusText.innerText = "LỖI: Không mở được Camera!";
                 console.error(err);
+                statusDisp.innerText = "Lỗi: " + err.message;
+                alert("Không thể truy cập Camera/Mic. Hãy đảm bảo bạn dùng HTTPS.");
             }
-        }
+        };
 
         peer.on('error', (err) => {
-            statusText.innerText = "Lỗi Peer: " + err.type;
+            console.error(err);
+            statusDisp.innerText = "Lỗi Peer: " + err.type;
         });
     </script>
 </body>
