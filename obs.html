@@ -2,98 +2,76 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Receiver 1080p - Audio Fixed</title>
+    <title>OBS Receiver 1080p - Ultra Stable</title>
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { margin: 0; background: transparent; overflow: hidden; width: 1920px; height: 1080px; font-family: sans-serif; }
-        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.95); padding: 40px; border-radius: 30px; border: 2px solid #444; z-index: 10; }
-        video { width: 1920px; height: 1080px; object-fit: cover; background: black; display: none; }
-        #qr-code { display: flex; justify-content: center; background: white; padding: 20px; border-radius: 15px; width: 450px; height: 450px; margin: 0 auto; }
-        
-        /* Nút điều khiển âm thanh tạm thời để kích hoạt Audio Context */
-        #audio-control {
-            position: absolute; bottom: 20px; right: 20px;
-            padding: 15px 25px; background: rgba(0,0,0,0.7);
-            color: white; border: 1px solid #fff; border-radius: 10px;
-            cursor: pointer; z-index: 100; display: none;
-        }
+        body { margin: 0; background: #000; overflow: hidden; width: 1920px; height: 1080px; font-family: sans-serif; }
+        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(20,20,20,0.9); padding: 40px; border-radius: 20px; border: 1px solid #333; z-index: 10; }
+        video { width: 1920px; height: 1080px; object-fit: cover; display: none; background: #000; }
+        #qr-code { display: flex; justify-content: center; background: white; padding: 15px; border-radius: 10px; width: 400px; height: 400px; margin: 0 auto; }
+        #audio-status { position: absolute; bottom: 10px; left: 10px; color: #555; font-size: 12px; z-index: 5; }
     </style>
 </head>
 <body>
-    <button id="audio-control">BẬT ÂM THANH</button>
-
     <div id="setup">
         <div id="qr-code"></div>
-        <h2 id="msg" style="margin-top: 20px; font-size: 28px;">QUÉT ĐỂ TRUYỀN HÌNH</h2>
-        <p id="peer-id-display" style="color: #888; font-size: 14px;">Đang kết nối server tin cậy...</p>
+        <h2 id="msg" style="margin-top: 20px;">QUÉT ĐỂ TRUYỀN HÌNH</h2>
+        <p id="peer-id-display" style="color: #aaa;">Đang khởi tạo...</p>
     </div>
     
     <video id="remote-video" autoplay playsinline></video>
+    <div id="audio-status">Audio: Auto-detecting...</div>
 
     <script>
         const video = document.getElementById('remote-video');
         const setup = document.getElementById('setup');
         const msg = document.getElementById('msg');
         const peerDisplay = document.getElementById('peer-id-display');
-        const audioBtn = document.getElementById('audio-control');
 
-        const peer = new Peer('obs-' + Math.floor(Math.random() * 99999), {
+        const peer = new Peer('obs-' + Math.floor(Math.random() * 9999), {
             host: '0.peerjs.com',
             port: 443,
             path: '/',
             secure: true,
-            debug: 3,
+            debug: 1, // Giảm debug xuống 1 để tránh tràn log gây treo máy
             config: {
-                'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' }
-                ],
+                'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }],
                 'sdpSemantics': 'unified-plan'
             }
         });
 
-        // Xử lý bật âm thanh (Vì trình duyệt chặn auto-play audio)
-        audioBtn.onclick = () => {
-            video.muted = false;
-            video.volume = 1.0;
-            audioBtn.style.display = 'none';
-        };
-
         peer.on('open', (id) => {
-            peerDisplay.innerText = "ID SẴN SÀNG: " + id;
+            peerDisplay.innerText = "ID: " + id;
             let currentUrl = window.location.href.split('?')[0].replace('obs.html', 'phone.html');
-            document.getElementById("qr-code").innerHTML = "";
-            new QRCode(document.getElementById("qr-code"), { 
-                text: currentUrl + "?join=" + id, 
-                width: 450, height: 450 
-            });
+            new QRCode(document.getElementById("qr-code"), { text: currentUrl + "?join=" + id, width: 400, height: 400 });
         });
 
         peer.on('call', (call) => {
-            msg.innerText = "ĐANG KẾT NỐI...";
+            msg.innerText = "KẾT NỐI THÀNH CÔNG!";
             call.answer(); 
             
             call.on('stream', (stream) => {
                 setup.style.display = 'none';
                 video.style.display = 'block';
-                audioBtn.style.display = 'block'; // Hiện nút để người dùng bấm bật tiếng nếu cần
-                
                 video.srcObject = stream;
                 
+                // Mẹo nhỏ: Bật âm thanh sau khi luồng đã sẵn sàng
                 video.onloadedmetadata = () => {
-                    // Thử tự động phát tiếng
-                    video.play().catch(e => {
-                        console.log("Cần bấm nút để nghe tiếng do chính sách trình duyệt");
+                    video.muted = false; // Bật mic
+                    video.play().catch(() => {
+                        // Nếu trình duyệt chặn, ép buộc chạy bằng tương tác ảo hoặc đợi OBS kích hoạt
+                        console.log("OBS sẽ tự kích hoạt Audio qua Browser Source");
                     });
                 };
             });
         });
 
+        // Xử lý lỗi để tránh treo tab trình duyệt
         peer.on('error', (err) => {
-            console.error("Lỗi:", err.type);
-            peerDisplay.innerText = "Lỗi kết nối: " + err.type;
+            console.error(err);
+            peerDisplay.innerText = "Lỗi: " + err.type;
+            if(err.type === 'network') location.reload(); // Tự reset nếu mất mạng LAN
         });
     </script>
 </body>
