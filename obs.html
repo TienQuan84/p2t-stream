@@ -2,26 +2,42 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>OBS Receiver 1080p - Fixed</title>
+    <title>OBS Receiver 1080p - Audio Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { margin: 0; background: transparent; overflow: hidden; width: 1920px; height: 1080px; font-family: sans-serif; }
-        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.95); padding: 40px; border-radius: 30px; border: 2px solid #444; }
+        #setup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; background: rgba(0,0,0,0.95); padding: 40px; border-radius: 30px; border: 2px solid #444; z-index: 10; }
         video { width: 1920px; height: 1080px; object-fit: cover; background: black; display: none; }
         #qr-code { display: flex; justify-content: center; background: white; padding: 20px; border-radius: 15px; width: 450px; height: 450px; margin: 0 auto; }
+        
+        /* Nút điều khiển âm thanh tạm thời để kích hoạt Audio Context */
+        #audio-control {
+            position: absolute; bottom: 20px; right: 20px;
+            padding: 15px 25px; background: rgba(0,0,0,0.7);
+            color: white; border: 1px solid #fff; border-radius: 10px;
+            cursor: pointer; z-index: 100; display: none;
+        }
     </style>
 </head>
 <body>
+    <button id="audio-control">BẬT ÂM THANH</button>
+
     <div id="setup">
         <div id="qr-code"></div>
         <h2 id="msg" style="margin-top: 20px; font-size: 28px;">QUÉT ĐỂ TRUYỀN HÌNH</h2>
         <p id="peer-id-display" style="color: #888; font-size: 14px;">Đang kết nối server tin cậy...</p>
     </div>
+    
     <video id="remote-video" autoplay playsinline></video>
 
     <script>
-        // Bổ sung cấu hình ICE Servers để hỗ trợ card mạng LAN (Ethernet)
+        const video = document.getElementById('remote-video');
+        const setup = document.getElementById('setup');
+        const msg = document.getElementById('msg');
+        const peerDisplay = document.getElementById('peer-id-display');
+        const audioBtn = document.getElementById('audio-control');
+
         const peer = new Peer('obs-' + Math.floor(Math.random() * 99999), {
             host: '0.peerjs.com',
             port: 443,
@@ -33,14 +49,17 @@
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
                     { urls: 'stun:stun2.l.google.com:19302' }
-                ]
+                ],
+                'sdpSemantics': 'unified-plan'
             }
         });
 
-        const video = document.getElementById('remote-video');
-        const setup = document.getElementById('setup');
-        const msg = document.getElementById('msg');
-        const peerDisplay = document.getElementById('peer-id-display');
+        // Xử lý bật âm thanh (Vì trình duyệt chặn auto-play audio)
+        audioBtn.onclick = () => {
+            video.muted = false;
+            video.volume = 1.0;
+            audioBtn.style.display = 'none';
+        };
 
         peer.on('open', (id) => {
             peerDisplay.innerText = "ID SẴN SÀNG: " + id;
@@ -55,21 +74,26 @@
         peer.on('call', (call) => {
             msg.innerText = "ĐANG KẾT NỐI...";
             call.answer(); 
+            
             call.on('stream', (stream) => {
                 setup.style.display = 'none';
                 video.style.display = 'block';
+                audioBtn.style.display = 'block'; // Hiện nút để người dùng bấm bật tiếng nếu cần
+                
                 video.srcObject = stream;
-                video.play().catch(e => console.log("Lỗi tự chạy:", e));
+                
+                video.onloadedmetadata = () => {
+                    // Thử tự động phát tiếng
+                    video.play().catch(e => {
+                        console.log("Cần bấm nút để nghe tiếng do chính sách trình duyệt");
+                    });
+                };
             });
         });
 
         peer.on('error', (err) => {
-            console.error("Lỗi chi tiết:", err.type);
-            if(err.type === 'network') {
-                peerDisplay.innerText = "LỖI MẠNG: Vui lòng kiểm tra tường lửa card LAN hoặc NAT của Modem.";
-            } else {
-                peerDisplay.innerText = "Lỗi: " + err.type;
-            }
+            console.error("Lỗi:", err.type);
+            peerDisplay.innerText = "Lỗi kết nối: " + err.type;
         });
     </script>
 </body>
